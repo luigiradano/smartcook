@@ -1710,13 +1710,31 @@ async function renderPlanner(view) {
         paint(days);
     };
     const paint = (days) => {
-		view.innerHTML = `<section class="toolbar panel planner-toolbar"><button class="secondary planner-week-button" data-week-back type="button" aria-label="${attr(tr('Previous'))}" title="${attr(tr('Previous'))}">${fa('chevron-left')}</button><div><p class="eyebrow">${esc(tr('Week'))}</p><h2>${esc(days[0].toLocaleDateString())} - ${esc(days[6].toLocaleDateString())}</h2></div><button class="secondary planner-week-button" data-week-forward type="button" aria-label="${attr(tr('Next'))}" title="${attr(tr('Next'))}">${fa('chevron-right')}</button><div class="planner-toolbar-actions"><button class="ghost" data-week-today type="button">${esc(tr('Today'))}</button><button class="secondary" data-clear-week type="button"${meals.length ? '' : ' disabled'}>${esc(tr('Empty week'))}</button></div></section>
+		view.innerHTML = `<section class="toolbar panel planner-toolbar"><button class="secondary planner-week-button" data-week-back type="button" aria-label="${attr(tr('Previous'))}" title="${attr(tr('Previous'))}">${fa('chevron-left')}</button><div><p class="eyebrow">${esc(tr('Week'))}</p><h2>${esc(days[0].toLocaleDateString())} - ${esc(days[6].toLocaleDateString())}</h2></div><button class="secondary planner-week-button" data-week-forward type="button" aria-label="${attr(tr('Next'))}" title="${attr(tr('Next'))}">${fa('chevron-right')}</button><div class="planner-toolbar-actions"><button class="secondary" data-shopping-list type="button"${meals.length ? '' : ' disabled'}>${fa('cart-shopping')}${esc(tr('Shopping list from plan'))}</button><button class="ghost" data-week-today type="button">${esc(tr('Today'))}</button><button class="secondary" data-clear-week type="button"${meals.length ? '' : ' disabled'}>${esc(tr('Empty week'))}</button></div></section>
 		<section class="panel form-section planner-ai"><div class="section-heading"><div><p class="eyebrow">${esc(tr('AI meal planner'))}</p></div></div><div class="form-grid"><label class="span-2">${esc(tr('Weekly instruction (optional)'))}<textarea data-planner-instruction rows="2" placeholder="${attr(tr('Example: use more legumes and prepare leftovers for lunch'))}"></textarea></label></div><button class="primary" data-generate-plan type="button">${esc(tr('Generate with AI'))}</button></section>
 		<section class="planner-grid">${days.map(day => `<article class="day-column panel ${dateIso(day) === dateIso(new Date()) ? 'today' : ''}"><header><span>${esc(day.toLocaleDateString(undefined, { weekday: 'short' }))}</span><strong>${day.getDate()}</strong></header>${meals.filter(meal => meal.date === dateIso(day)).map(meal => { const recipe = recipes.find(item => item.id === meal.recipeId); return `<div class="meal-card"><small>${esc(mealLabel(meal.slot))}</small><a href="#/recipes/${meal.recipeId}"><span class="meal-card-thumb">${recipeThumb(recipe || { title: meal.recipeTitle })}</span><span class="meal-card-title">${esc(meal.recipeTitle)}</span></a><button data-delete-meal="${meal.id}" type="button" aria-label="${attr(tr('Remove'))}">${fa('xmark')}</button></div>`; }).join('')}<button class="add-meal" data-select-date="${dateIso(day)}" type="button">${fa('plus')}</button></article>`).join('')}</section>
 		<section class="panel form-section"><div class="section-heading"><div><p class="eyebrow">${esc(tr('Plan'))}</p><h2>${esc(tr('Add a meal'))}</h2></div></div><div class="form-grid four"><label>${esc(tr('Date'))}<input data-meal-date type="date" value="${dateIso(new Date())}"></label><label>${esc(tr('Recipe'))}${recipeSearchPicker(recipes)}</label><label>${esc(tr('Meal'))}<select data-meal-slot><option value="breakfast">${esc(tr('Breakfast'))}</option><option value="lunch">${esc(tr('Lunch'))}</option><option value="dinner" selected>${esc(tr('Dinner'))}</option><option value="snack">${esc(tr('Snack'))}</option></select></label><label>${esc(tr('Servings'))}<input data-meal-servings type="number" min="1" value="2"></label></div><button class="primary" data-add-meal type="button">${esc(tr('Add to plan'))}</button></section>`;
         view.querySelector('[data-week-back]')?.addEventListener('click', () => { weekStart.setDate(weekStart.getDate() - 7); void load(); });
         view.querySelector('[data-week-forward]')?.addEventListener('click', () => { weekStart.setDate(weekStart.getDate() + 7); void load(); });
         view.querySelector('[data-week-today]')?.addEventListener('click', () => { weekStart = startOfWeek(new Date()); void load(); });
+		view.querySelector('[data-shopping-list]')?.addEventListener('click', async () => {
+            if (!meals.length)
+                return;
+            const counts = new Map();
+            for (const meal of meals) {
+                const key = meal.recipeId;
+                const title = meal.recipeTitle || recipes.find(r => r.id === key)?.title || tr('Unknown recipe');
+                if (!counts.has(key))
+                    counts.set(key, { title, count: 0 });
+                counts.get(key).count++;
+            }
+            const summary = [...counts.values()].map(entry => `${entry.count}x ${entry.title}`).join('\n');
+            if (!window.confirm(tr('Create shopping list from meal plan?') + '\n\n' + summary))
+                return;
+            const selections = [...counts.entries()].map(([recipeId, entry]) => ({ recipeId: asNumber(recipeId), servings: 1 }));
+            await working(() => request('/shopping', { method: 'POST', json: { name: tr('Shopping list from plan'), recipes: selections } }));
+            showNotice(tr('Shopping list created'));
+        });
 		bindRecipeSearchPicker(view);
 		view.querySelector('[data-clear-week]')?.addEventListener('click', async () => {
 			if (!window.confirm(tr('Clear all meals from this week?')))
