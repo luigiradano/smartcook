@@ -27,6 +27,7 @@ final class ShoppingService {
 
     /** @param list<array{recipeId:int,servings?:int}> $selections @return array<string, mixed> */
     public function fromRecipes(string $name, array $selections): array {
+        error_log('[SmartCook] ShoppingService::fromRecipes - selections: ' . json_encode($selections));
         return $this->shopping->createList($this->userContext->userId(), $name, $this->ingredientsFromRecipes($selections), ['recipes' => $selections]);
     }
 

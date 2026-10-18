@@ -1732,6 +1732,8 @@ async function renderPlanner(view) {
             if (!window.confirm(tr('Create shopping list from meal plan?') + '\n\n' + summary))
                 return;
             const selections = meals.map(meal => ({ recipeId: asNumber(meal.recipeId), servings: asNumber(meal.servings, 1) }));
+            console.log('[SmartCook] Shopping list - meal.servings values:', JSON.stringify(meals.map(m => ({ recipeId: m.recipeId, title: m.recipeTitle, storedServings: m.servings }))));
+            console.log('[SmartCook] Shopping list - selections sent to backend:', JSON.stringify(selections));
             await working(() => request('/shopping', { method: 'POST', json: { name: tr('Shopping list from plan'), recipes: selections } }));
             showNotice(tr('Shopping list created'));
         });
