@@ -302,7 +302,7 @@ const dateIso = (value) => {
 const appUrl = (path) => smartWindow.OC?.generateUrl
     ? smartWindow.OC.generateUrl(`/apps/${appId}${path}`)
     : `/index.php/apps/${appId}${path}`;
-const appVersion = '1.0.41';
+const appVersion = '1.0.42';
 const appIconUrl = `/custom_apps/smartcook/img/app-${appVersion}.svg?v=${appVersion}`;
 const faviconUrl = `/custom_apps/smartcook/img/favicon-${appVersion}.ico?v=${appVersion}`;
 
@@ -1731,7 +1731,13 @@ async function renderPlanner(view) {
             const summary = [...counts.values()].map(entry => `${entry.count}x ${entry.title}`).join('\n');
             if (!window.confirm(tr('Create shopping list from meal plan?') + '\n\n' + summary))
                 return;
-            const selections = meals.map(meal => ({ recipeId: asNumber(meal.recipeId), servings: asNumber(meal.servings, 1) }));
+            const recipeServings = new Map();
+            for (const meal of meals) {
+                const key = asNumber(meal.recipeId);
+                const ms = asNumber(meal.servings, 1);
+                recipeServings.set(key, (recipeServings.get(key) || 0) + ms);
+            }
+            const selections = [...recipeServings.entries()].map(([recipeId, servings]) => ({ recipeId, servings }));
             console.log('[SmartCook] Shopping list - meal.servings values:', JSON.stringify(meals.map(m => ({ recipeId: m.recipeId, title: m.recipeTitle, storedServings: m.servings }))));
             console.log('[SmartCook] Shopping list - selections sent to backend:', JSON.stringify(selections));
             await working(() => request('/shopping', { method: 'POST', json: { name: tr('Shopping list from plan'), recipes: selections } }));
