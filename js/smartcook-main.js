@@ -302,7 +302,7 @@ const dateIso = (value) => {
 const appUrl = (path) => smartWindow.OC?.generateUrl
     ? smartWindow.OC.generateUrl(`/apps/${appId}${path}`)
     : `/index.php/apps/${appId}${path}`;
-const appVersion = '1.0.42';
+const appVersion = '1.0.43';
 const appIconUrl = `/custom_apps/smartcook/img/app-${appVersion}.svg?v=${appVersion}`;
 const faviconUrl = `/custom_apps/smartcook/img/favicon-${appVersion}.ico?v=${appVersion}`;
 
@@ -1729,21 +1729,41 @@ async function renderPlanner(view) {
                 counts.get(key).count++;
             }
             const summary = [...counts.values()].map(entry => `${entry.count}x ${entry.title}`).join('\n');
-            if (!window.confirm(tr('Create shopping list from meal plan?') + '\n\n' + summary))
+            // Build a promise-based dialog to ask for servings per meal
+            const result = await new Promise(resolve => {
+                const modal = document.createElement('div');
+                modal.className = 'cover-picker-modal';
+                modal.setAttribute('role', 'dialog');
+                modal.setAttribute('aria-modal', 'true');
+                modal.setAttribute('aria-label', tr('Shopping list from meal plan'));
+                const close = (servingsPerMeal = null) => { modal.remove(); resolve(servingsPerMeal); };
+                modal.innerHTML = `<div class="cover-picker-card shopping-list-picker"><div class="section-heading"><div><p class="eyebrow">${esc(tr('Shopping list from plan'))}</p></div><button class="icon-button" data-close-shopping-plan type="button" aria-label="${attr(tr('Close'))}">${fa('xmark')}</button></div><div class="shopping-list-choices"><strong>${esc(summary)}</strong></div><div class="form-grid"><label>${esc(tr('Servings per meal'))}<input id="smartcook-plan-servings" type="number" min="1" max="30" value="1"></label></div><div class="button-row"><button class="primary" data-confirm-shopping-plan type="button">${esc(tr('Create shopping list'))}</button><button class="ghost" data-close-shopping-plan type="button">${esc(tr('Cancel'))}</button></div></div>`;
+                modal.querySelectorAll('[data-close-shopping-plan]').forEach(button => button.addEventListener('click', () => close(null)));
+                modal.querySelector('[data-confirm-shopping-plan]')?.addEventListener('click', () => {
+                    const input = modal.querySelector('#smartcook-plan-servings');
+                    close(Math.max(1, Math.min(30, asNumber(input?.value, 1))));
+                });
+                modal.addEventListener('click', event => { if (event.target === modal) close(null); });
+                document.body.append(modal);
+                const input = modal.querySelector('#smartcook-plan-servings');
+                if (input) {
+                    input.focus();
+                    input.select();
+                    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.click(); });
+                }
+            });
+            if (result === null)
                 return;
+            const servingsPerMeal = result;
             const recipeServings = new Map();
             for (const meal of meals) {
                 const key = asNumber(meal.recipeId);
-                const ms = asNumber(meal.servings, 1);
-                recipeServings.set(key, (recipeServings.get(key) || 0) + ms);
+                recipeServings.set(key, (recipeServings.get(key) || 0) + servingsPerMeal);
             }
             const selections = [...recipeServings.entries()].map(([recipeId, servings]) => ({ recipeId, servings }));
-            console.log('[SmartCook] Shopping list - meal.servings values:', JSON.stringify(meals.map(m => ({ recipeId: m.recipeId, title: m.recipeTitle, storedServings: m.servings }))));
-            console.log('[SmartCook] Shopping list - selections sent to backend:', JSON.stringify(selections));
             await working(() => request('/shopping', { method: 'POST', json: { name: tr('Shopping list from plan'), recipes: selections } }));
             showNotice(tr('Shopping list created'));
-        });
-		bindRecipeSearchPicker(view);
+        });		bindRecipeSearchPicker(view);
 		view.querySelector('[data-clear-week]')?.addEventListener('click', async () => {
 			if (!window.confirm(tr('Clear all meals from this week?')))
 				return;
