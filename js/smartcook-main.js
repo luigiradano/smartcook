@@ -1731,7 +1731,7 @@ async function renderPlanner(view) {
             const summary = [...counts.values()].map(entry => `${entry.count}x ${entry.title}`).join('\n');
             if (!window.confirm(tr('Create shopping list from meal plan?') + '\n\n' + summary))
                 return;
-            const selections = [...counts.entries()].map(([recipeId, entry]) => ({ recipeId: asNumber(recipeId), servings: 1 }));
+            const selections = meals.map(meal => ({ recipeId: asNumber(meal.recipeId), servings: asNumber(meal.servings, 1) }));
             await working(() => request('/shopping', { method: 'POST', json: { name: tr('Shopping list from plan'), recipes: selections } }));
             showNotice(tr('Shopping list created'));
         });
