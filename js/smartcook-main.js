@@ -302,7 +302,7 @@ const dateIso = (value) => {
 const appUrl = (path) => smartWindow.OC?.generateUrl
     ? smartWindow.OC.generateUrl(`/apps/${appId}${path}`)
     : `/index.php/apps/${appId}${path}`;
-const appVersion = '1.0.40';
+const appVersion = '1.0.41';
 const appIconUrl = `/custom_apps/smartcook/img/app-${appVersion}.svg?v=${appVersion}`;
 const faviconUrl = `/custom_apps/smartcook/img/favicon-${appVersion}.ico?v=${appVersion}`;
 
